@@ -23,6 +23,12 @@ matrix:
   exclude:
     - os: osx
       compiler: gcc
+  exclude:
+    - os: linux
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get -qq update; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -qq -y libaio-dev libnuma-dev libz-dev; fi
+script:
+  - ./configure && make; ulimit -c unlimited -S; i=0; ok=0; while [[ ok -eq 0 && i -le 100 ]]; do make test; ok=$?; i=$((i + 1)); done; lldb -c `ls -t /cores/* | head -n1` --batch -o 'thread backtrace all' -o 'quit' && exit 1
+after_failure:
+  - if [[ -d ~/Library/Logs/DiagnosticReports/ ]]; then head -1000 ~/Library/Logs/DiagnosticReports/*; fi
