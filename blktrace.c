@@ -421,6 +421,7 @@ static void depth_end(struct blk_io_trace *t, int *this_depth, int *depth)
  */
 int load_blktrace(struct thread_data *td, const char *filename, int need_swap)
 {
+	// FIXME: Adapt to streaming mode
 	struct blk_io_trace t;
 	unsigned long ios[DDIR_RWDIR_CNT], skipped_writes;
 	unsigned int rw_bs[DDIR_RWDIR_CNT];
@@ -432,7 +433,7 @@ int load_blktrace(struct thread_data *td, const char *filename, int need_swap)
 	fd = open(filename, O_RDONLY);
 	if (fd < 0) {
 		td_verror(td, errno, "open blktrace file");
-		return 1;
+		return -1;
 	}
 
 	fifo = fifo_alloc(TRACE_FIFO_SIZE);
@@ -512,7 +513,7 @@ int load_blktrace(struct thread_data *td, const char *filename, int need_swap)
 
 	if (!td->files_index) {
 		log_err("fio: did not find replay device(s)\n");
-		return 1;
+		return -1;
 	}
 
 	/*
@@ -534,7 +535,7 @@ int load_blktrace(struct thread_data *td, const char *filename, int need_swap)
 
 	if (!ios[DDIR_READ] && !ios[DDIR_WRITE]) {
 		log_err("fio: found no ios in blktrace data\n");
-		return 1;
+		return -1;
 	} else if (ios[DDIR_READ] && !ios[DDIR_WRITE]) {
 		td->o.td_ddir = TD_DDIR_READ;
 		td->o.max_bs[DDIR_READ] = rw_bs[DDIR_READ];
@@ -566,5 +567,5 @@ int load_blktrace(struct thread_data *td, const char *filename, int need_swap)
 err:
 	close(fd);
 	fifo_free(fifo);
-	return 1;
+	return -1;
 }

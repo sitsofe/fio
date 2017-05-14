@@ -44,6 +44,7 @@
 #include "io_u_queue.h"
 #include "workqueue.h"
 #include "steadystate.h"
+#include "iolog_thread.h"
 
 #ifdef CONFIG_SOLARISAIO
 #include <sys/asynch.h>
@@ -373,6 +374,14 @@ struct thread_data {
 	 * For IO replaying
 	 */
 	struct flist_head io_log_list;
+	// FIXME: Move to substruct?
+	struct flist_head io_log_swap_list;
+	pthread_mutex_t io_log_lock;
+	pthread_cond_t io_log_fill_cond;
+	pthread_cond_t io_log_read_cond;
+	enum swap_states io_log_swap_state;
+	// FIXME: Is the following needed?
+	bool io_log_stream_empty;
 
 	/*
 	 * For tracking/handling discards

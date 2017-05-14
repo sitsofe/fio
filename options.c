@@ -3027,6 +3027,15 @@ struct fio_option fio_options[FIO_MAX_OPTS] = {
 		.group	= FIO_OPT_G_IOLOG,
 	},
 	{
+		.name	= "read_iolog_stream",
+		.lname	= "Continue to stream the read I/O log after starts",
+		.type	= FIO_OPT_STR_SET,
+		.off1	= offsetof(struct thread_options, read_iolog_stream),
+		.help	= "Enable streaming of playback file",
+		.category = FIO_OPT_C_IO,
+		.group	= FIO_OPT_G_IOLOG,
+	},
+	{
 		.name	= "replay_no_stall",
 		.lname	= "Don't stall on replay",
 		.type	= FIO_OPT_BOOL,

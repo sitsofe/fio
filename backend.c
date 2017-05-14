@@ -58,6 +58,7 @@
 #include "lib/mountcheck.h"
 #include "rate-submit.h"
 #include "helper_thread.h"
+#include "iolog_thread.h"
 
 static struct fio_mutex *startup_mutex;
 static struct flist_head *cgroup_list;
@@ -871,8 +872,8 @@ static void do_io(struct thread_data *td, uint64_t *bytes_done)
 	if (td_trimwrite(td))
 		total_bytes += td->total_io_size;
 
-	while ((td->o.read_iolog_file && !flist_empty(&td->io_log_list)) ||
-		(!flist_empty(&td->trim_list)) || !io_issue_bytes_exceeded(td) ||
+	while ((td->o.read_iolog_file && (!td->io_log_stream_empty || !flist_empty(&td->io_log_list))) ||
+		(!flist_empty(&td->trim_list)) || (!io_issue_bytes_exceeded(td)) ||
 		td->o.time_based) {
 		struct timespec comp_time;
 		struct io_u *io_u;
@@ -902,7 +903,7 @@ static void do_io(struct thread_data *td, uint64_t *bytes_done)
 		 * based runs, but we still need to break out of the loop
 		 * for those to run verification, if enabled.
 		 */
-		if (bytes_issued >= total_bytes &&
+		if (!td->o.read_iolog_stream && bytes_issued >= total_bytes &&
 		    (!td->o.time_based ||
 		     (td->o.time_based && td->o.verify != VERIFY_NONE)))
 			break;
@@ -1479,6 +1480,7 @@ static void *thread_main(void *data)
 		fio_server_send_start(td);
 
 	INIT_FLIST_HEAD(&td->io_log_list);
+	INIT_FLIST_HEAD(&td->io_log_swap_list);
 	INIT_FLIST_HEAD(&td->io_hist_list);
 	INIT_FLIST_HEAD(&td->verify_list);
 	INIT_FLIST_HEAD(&td->trim_list);
@@ -1495,7 +1497,16 @@ static void *thread_main(void *data)
 		td_verror(td, ret, "mutex_cond_pshared");
 		goto err;
 	}
-
+	ret = mutex_cond_init_pshared(&td->io_log_lock, &td->io_log_fill_cond);
+	if (ret) {
+		td_verror(td, ret, "mutex_cond_init_pshared");
+		goto err;
+	}
+	ret = cond_init_pshared(&td->io_log_read_cond);
+	if (ret) {
+		td_verror(td, ret, "mutex_cond_pshared");
+		goto err;
+	}
 	td_set_runstate(td, TD_INITIALIZED);
 	dprint(FD_MUTEX, "up startup_mutex\n");
 	fio_mutex_up(startup_mutex);
@@ -1611,6 +1622,9 @@ static void *thread_main(void *data)
 	 * May alter parameters that init_io_u() will use, so we need to
 	 * do this first.
 	 */
+	// FIXME: Cope with more positive returns and only consider negatives
+	// bad
+	td->io_log_stream_empty = true;
 	if (init_iolog(td))
 		goto err;
 
@@ -1783,7 +1797,7 @@ static void *thread_main(void *data)
 	 * then something went wrong unless FIO_NOIO or FIO_DISKLESSIO.
 	 * (Are we not missing other flags that can be ignored ?)
 	 */
-	if ((td->o.size || td->o.io_size) && !ddir_rw_sum(bytes_done) &&
+	if (((!td->o.read_iolog_stream && td->o.size) || td->o.io_size) && !ddir_rw_sum(bytes_done) &&
 	    !(td_ioengine_flagged(td, FIO_NOIO) ||
 	      td_ioengine_flagged(td, FIO_DISKLESSIO)))
 		log_err("%s: No I/O performed by %s, "

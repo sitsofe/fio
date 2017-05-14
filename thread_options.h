@@ -243,6 +243,7 @@ struct thread_options {
 
 	char *read_iolog_file;
 	char *write_iolog_file;
+	unsigned int read_iolog_stream;
 
 	unsigned int write_bw_log;
 	unsigned int write_lat_log;
@@ -514,6 +515,8 @@ struct thread_options_pack {
 
 	uint8_t read_iolog_file[FIO_TOP_STR_MAX];
 	uint8_t write_iolog_file[FIO_TOP_STR_MAX];
+	uint32_t read_iolog_stream;
+	uint32_t pad2;
 
 	uint32_t write_bw_log;
 	uint32_t write_lat_log;
@@ -571,7 +574,7 @@ struct thread_options_pack {
 	uint64_t number_ios;
 
 	uint32_t sync_file_range;
-	uint32_t pad2;
+	uint32_t pad3;
 
 	uint64_t latency_target;
 	uint64_t latency_window;

@@ -20,11 +20,13 @@
 #include "filelock.h"
 #include "smalloc.h"
 #include "blktrace.h"
+#include "iolog_thread.h"
 
 static int iolog_flush(struct io_log *log);
 
 static const char iolog_ver2[] = "fio version 2 iolog";
 
+// FIXME: Take the list to add?
 void queue_io_piece(struct thread_data *td, struct io_piece *ipo)
 {
 	flist_add_tail(&ipo->list, &td->io_log_list);
@@ -138,45 +140,79 @@ int read_iolog_get(struct thread_data *td, struct io_u *io_u)
 {
 	struct io_piece *ipo;
 	unsigned long elapsed;
+	bool end;
 
-	while (!flist_empty(&td->io_log_list)) {
-		int ret;
+	end = false;
+	do {
+		while (!flist_empty(&td->io_log_list)) {
+			int ret;
 
-		ipo = flist_first_entry(&td->io_log_list, struct io_piece, list);
-		flist_del(&ipo->list);
-		remove_trim_entry(td, ipo);
+			dprint(FD_COMPRESS, "iolog: process ipo...\n");
+			ipo = flist_first_entry(&td->io_log_list, struct io_piece, list);
+			flist_del(&ipo->list);
+			remove_trim_entry(td, ipo);
 
-		ret = ipo_special(td, ipo);
-		if (ret < 0) {
-			free(ipo);
-			break;
-		} else if (ret > 0) {
-			free(ipo);
-			continue;
-		}
+			ret = ipo_special(td, ipo);
+			if (ret < 0) {
+				free(ipo);
+				break;
+			} else if (ret > 0) {
+				free(ipo);
+				continue;
+			}
 
-		io_u->ddir = ipo->ddir;
-		if (ipo->ddir != DDIR_WAIT) {
-			io_u->offset = ipo->offset;
-			io_u->buflen = ipo->len;
-			io_u->file = td->files[ipo->fileno];
-			get_file(io_u->file);
-			dprint(FD_IO, "iolog: get %llu/%lu/%s\n", io_u->offset,
+			io_u->ddir = ipo->ddir;
+			if (ipo->ddir != DDIR_WAIT) {
+				io_u->offset = ipo->offset;
+				io_u->buflen = ipo->len;
+				io_u->file = td->files[ipo->fileno];
+				get_file(io_u->file);
+				dprint(FD_IO, "iolog: get %llu/%lu/%s\n", io_u->offset,
 						io_u->buflen, io_u->file->file_name);
-			if (ipo->delay)
-				iolog_delay(td, ipo->delay);
-		} else {
-			elapsed = mtime_since_genesis();
-			if (ipo->delay > elapsed)
-				usec_sleep(td, (ipo->delay - elapsed) * 1000);
+				if (ipo->delay)
+					iolog_delay(td, ipo->delay);
+			} else {
+				elapsed = mtime_since_genesis();
+				if (ipo->delay > elapsed)
+					usec_sleep(td, (ipo->delay - elapsed) * 1000);
+			}
+
+			free(ipo);
+
+			if (io_u->ddir != DDIR_WAIT)
+				return 0;
 		}
 
-		free(ipo);
+		dprint(FD_COMPRESS, "iolog: out of ipos...\n");
+		pthread_mutex_lock(&td->io_log_lock);
+		if (td->io_log_swap_state == SWAP_EMPTY)
+			td->io_log_swap_state = SWAP_EMPTY_WAITING;
 
-		if (io_u->ddir != DDIR_WAIT)
-			return 0;
-	}
+		while (td->io_log_swap_state == SWAP_EMPTY_WAITING) {
+			pthread_cond_signal(&td->io_log_fill_cond);
+			dprint(FD_COMPRESS, "read_iolog_get: sleeping on io_log_read_cond\n");
+			pthread_cond_wait(&td->io_log_read_cond, &td->io_log_lock);
+		}
 
+		assert(td->io_log_swap_state == SWAP_READY ||
+		       td->io_log_swap_state == SWAP_READY_FINAL ||
+		       td->io_log_swap_state == SWAP_EXHAUSTED);
+
+		if (td->io_log_swap_state == SWAP_READY) {
+			flist_splice_tail(&td->io_log_swap_list, &td->io_log_list);
+			INIT_FLIST_HEAD(&td->io_log_swap_list);
+			td->io_log_swap_state = SWAP_EMPTY;
+		} else if (td->io_log_swap_state == SWAP_READY_FINAL) {
+			flist_splice_tail(&td->io_log_swap_list, &td->io_log_list);
+			INIT_FLIST_HEAD(&td->io_log_swap_list);
+			td->io_log_swap_state = SWAP_EXHAUSTED;
+		} else if (td->io_log_swap_state == SWAP_EXHAUSTED) {
+			end = true;
+		}
+		pthread_mutex_unlock(&td->io_log_lock);
+	} while (!end);
+
+	td->io_log_stream_empty = true;
 	td->done = 1;
 	return 1;
 }
@@ -343,20 +379,32 @@ void write_iolog_close(struct thread_data *td)
 	td->iolog_buf = NULL;
 }
 
+void queue_io_piece_back(struct thread_data *td, struct io_piece *ipo)
+{
+	flist_add_tail(&ipo->list, &td->io_log_swap_list);
+	td->total_io_size += ipo->len;
+}
+
 /*
  * Read version 2 iolog data. It is enhanced to include per-file logging,
  * syncs, etc.
  */
-static int read_iolog2(struct thread_data *td, FILE *f)
+static int read_iolog2(struct thread_data *td, FILE *f, bool stream, bool resume, bool back)
 {
+#define MAX_STREAM_PIECES 256
 	unsigned long long offset;
 	unsigned int bytes;
 	int reads, writes, waits, fileno = 0, file_action = 0; /* stupid gcc */
+	int pieces;
 	char *rfname, *fname, *act;
 	char *str, *p;
 	enum fio_ddir rw;
+	bool more;
 
-	free_release_files(td);
+	dprint(FD_COMPRESS, "read_iolog2: f=%p\n", f);
+
+	if (!resume)
+		free_release_files(td);
 
 	/*
 	 * Read in the read iolog and store it, reuse the infrastructure
@@ -367,6 +415,8 @@ static int read_iolog2(struct thread_data *td, FILE *f)
 	act = malloc(256+16);
 
 	reads = writes = waits = 0;
+	more = false;
+	pieces = 0;
 	while ((p = fgets(str, 4096, f)) != NULL) {
 		struct io_piece *ipo;
 		int r;
@@ -469,44 +519,72 @@ static int read_iolog2(struct thread_data *td, FILE *f)
 			td->o.size += bytes;
 		}
 
-		queue_io_piece(td, ipo);
+		// FIXME: check whether we should add to the front or back
+		// buffer
+		if (back)
+			queue_io_piece_back(td, ipo);
+		else
+			queue_io_piece(td, ipo);
+
+		dprint(FD_COMPRESS, "read_iolog2: queued ipo\n");
+		pieces++;
+
+		if (stream && (pieces >= MAX_STREAM_PIECES)) {
+			more = true;
+			break;
+		}
 	}
 
 	free(str);
 	free(act);
 	free(rfname);
 
-	if (writes && read_only) {
-		log_err("fio: <%s> skips replay of %d writes due to"
-			" read-only\n", td->o.name, writes);
-		writes = 0;
+	if (!resume && !more) {
+		// FIXME: Do this check in resume stream mode too (but only
+		// output it once)...
+		if (writes && read_only) {
+			log_err("fio: <%s> skips replay of %d writes due to"
+				" read-only\n", td->o.name, writes);
+			writes = 0;
+		}
+
+		if (!reads && !writes && !waits)
+			return -1;
+		else if (reads && !writes)
+			td->o.td_ddir = TD_DDIR_READ;
+		else if (!reads && writes)
+			td->o.td_ddir = TD_DDIR_WRITE;
+		else
+			td->o.td_ddir = TD_DDIR_RW;
+	} else if (!resume && more) {
+		/*
+		 * Don't know the future in streaming mode so assume worst case
+		 */
+		td->o.td_ddir = TD_DDIR_RW;
 	}
 
-	if (!reads && !writes && !waits)
-		return 1;
-	else if (reads && !writes)
-		td->o.td_ddir = TD_DDIR_READ;
-	else if (!reads && writes)
-		td->o.td_ddir = TD_DDIR_WRITE;
-	else
-		td->o.td_ddir = TD_DDIR_RW;
-
-	return 0;
+	dprint(FD_COMPRESS, "pieces=%d,stream=%d,more=%d\n", pieces, stream, more);
+	if (more) {
+		return 2;
+	} else
+		return 0;
 }
 
 /*
- * open iolog, check version, and call appropriate parser
+ * open iolog, check version, and call appropriate parser.
  */
-static int init_iolog_read(struct thread_data *td)
+static int init_iolog_read(struct thread_data *td, FILE **opened, bool stream)
 {
-	char buffer[256], *p;
 	FILE *f;
+	char buffer[256], *p;
 	int ret;
 
 	f = fopen(td->o.read_iolog_file, "r");
+	*opened = f;
+	dprint(FD_COMPRESS, "opened=%p\n", *opened);
 	if (!f) {
 		perror("fopen read iolog");
-		return 1;
+		return -1;
 	}
 
 	p = fgets(buffer, sizeof(buffer), f);
@@ -514,7 +592,7 @@ static int init_iolog_read(struct thread_data *td)
 		td_verror(td, errno, "iolog read");
 		log_err("fio: unable to read iolog\n");
 		fclose(f);
-		return 1;
+		return -1;
 	}
 
 	/*
@@ -522,13 +600,17 @@ static int init_iolog_read(struct thread_data *td)
 	 * first line, check for that
 	 */
 	if (!strncmp(iolog_ver2, buffer, strlen(iolog_ver2)))
-		ret = read_iolog2(td, f);
+		ret = read_iolog2(td, f, stream, false, false);
 	else {
 		log_err("fio: iolog version 1 is no longer supported\n");
-		ret = 1;
+		ret = -1;
 	}
 
-	fclose(f);
+	// Don't close the file if we need to stream more
+	if (ret <= 0)
+		fclose(f);
+	
+	dprint(FD_COMPRESS, "exiting init_iolog_read ret=%d\n", ret);
 	return ret;
 }
 
@@ -571,25 +653,68 @@ static int init_iolog_write(struct thread_data *td)
 	return 0;
 }
 
+int read_opened_iolog(struct thread_data *td, bool blktrace_log, bool
+		      need_swap, FILE *f, bool stream, bool resume, bool back) {
+	int ret;
+
+	if (blktrace_log) {
+		ret = load_blktrace(td, td->o.read_iolog_file,
+				need_swap);
+	} else {
+		ret = read_iolog2(td, f, stream, true, back);
+	}
+
+	return ret;
+}
+
+int open_iolog(struct thread_data *td, bool *blktrace_log, int *need_swap,
+		FILE **f, bool stream) {
+	int ret;
+
+	/*
+	 * Check if it's a blktrace file and load that if possible.
+	 * Otherwise assume it's a normal log file and load that.
+	 */
+	*blktrace_log = is_blktrace(td->o.read_iolog_file,
+			need_swap);
+	if (*blktrace_log) {
+		// FIXME: initial open only
+		ret = load_blktrace(td, td->o.read_iolog_file,
+				*need_swap);
+	} else
+		ret = init_iolog_read(td, f, stream);
+
+	dprint(FD_COMPRESS, "exiting open_iolog *f=%p\n", *f);
+	return ret;
+}
+
 int init_iolog(struct thread_data *td)
 {
 	int ret = 0;
 
 	if (td->o.read_iolog_file) {
-		int need_swap;
-
 		/*
-		 * Check if it's a blktrace file and load that if possible.
-		 * Otherwise assume it's a normal log file and load that.
+		 * Do we need to stream in the iolog?
 		 */
-		if (is_blktrace(td->o.read_iolog_file, &need_swap))
-			ret = load_blktrace(td, td->o.read_iolog_file, need_swap);
-		else
-			ret = init_iolog_read(td);
+		// FIXME: Check if iolog_stream option == 1
+		if (td->o.read_iolog_stream) {
+			// Streaming mode
+			td->io_log_stream_empty = false;
+			ret = iolog_thread_create(td);
+		} else {
+			// Full read mode
+			int need_swap;
+			FILE *f = NULL;
+			bool blktrace_log;
+
+			ret = open_iolog(td, &blktrace_log, &need_swap, &f,
+					 false);
+			td->io_log_swap_state = SWAP_EXHAUSTED;
+		}
 	} else if (td->o.write_iolog_file)
 		ret = init_iolog_write(td);
 
-	if (ret)
+	if (ret != 0)
 		td_verror(td, EINVAL, "failed initializing iolog");
 
 	return ret;

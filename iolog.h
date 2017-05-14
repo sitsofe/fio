@@ -233,6 +233,11 @@ extern int __must_check read_iolog_get(struct thread_data *, struct io_u *);
 extern void log_io_u(const struct thread_data *, const struct io_u *);
 extern void log_file(struct thread_data *, struct fio_file *, enum file_log_act);
 extern int __must_check init_iolog(struct thread_data *td);
+extern int __must_check open_iolog(struct thread_data *td, bool *blktrace_log, int *need_swap,
+		FILE **f, bool stream);
+extern int __must_check read_opened_iolog(struct thread_data *td, bool
+		blktrace_log, bool need_swap, FILE *f, bool stream, bool
+		resume, bool back);
 extern void log_io_piece(struct thread_data *, struct io_u *);
 extern void unlog_io_piece(struct thread_data *, struct io_u *);
 extern void trim_io_piece(struct thread_data *, const struct io_u *);
