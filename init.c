@@ -501,6 +501,9 @@ static void put_job(struct thread_data *td)
 	if (td->o.name)
 		free(td->o.name);
 
+	if (td->files)
+		free(td->files);
+
 	memset(&threads[td->thread_number - 1], 0, sizeof(*td));
 	thread_number--;
 }

@@ -1305,6 +1305,7 @@ void close_and_free_files(struct thread_data *td)
 		sfree(f);
 	}
 
+	free(td->o.filename);
 	td->o.filename = NULL;
 	free(td->files);
 	free(td->file_locks);
