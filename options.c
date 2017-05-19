@@ -4941,6 +4941,20 @@ void del_opt_posval(const char *optname, const char *ival)
 	}
 }
 
+void fio_dump_options_free(struct thread_data *td)
+{
+	while (!flist_empty(&td->opt_list)) {
+		struct print_option *p;
+
+		p = flist_first_entry(&td->opt_list, struct print_option, list);
+		flist_del_init(&p->list);
+		free(p->name);
+		free(p->value);
+		free(p);
+		dprint(FD_PARSE, "Deleting option\n");
+	}
+}
+
 void fio_options_free(struct thread_data *td)
 {
 	options_free(fio_options, &td->o);
@@ -4949,6 +4963,7 @@ void fio_options_free(struct thread_data *td)
 		free(td->eo);
 		td->eo = NULL;
 	}
+	fio_dump_options_free(td);
 }
 
 struct fio_option *fio_option_find(const char *name)
