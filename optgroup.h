@@ -59,6 +59,7 @@ enum opt_category_group {
         __FIO_OPT_G_GFAPI,
         __FIO_OPT_G_MTD,
 	__FIO_OPT_G_HDFS,
+        __FIO_OPT_G_LIBISCSI,
 	__FIO_OPT_G_NR,
 
 	FIO_OPT_G_RATE		= (1ULL << __FIO_OPT_G_RATE),
@@ -93,6 +94,7 @@ enum opt_category_group {
 	FIO_OPT_G_GFAPI		= (1ULL << __FIO_OPT_G_GFAPI),
 	FIO_OPT_G_MTD		= (1ULL << __FIO_OPT_G_MTD),
 	FIO_OPT_G_HDFS		= (1ULL << __FIO_OPT_G_HDFS),
+	FIO_OPT_G_LIBISCSI	= (1ULL << __FIO_OPT_G_LIBISCSI),
 	FIO_OPT_G_INVALID	= (1ULL << __FIO_OPT_G_NR),
 };
 

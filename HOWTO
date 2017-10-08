@@ -1790,6 +1790,15 @@ I/O engine
 			Read and write using device DAX to a persistent memory device (e.g.,
 			/dev/dax0.0) through the NVML libpmem library.
 
+		**libiscsi**
+			Read and write to iSCSI/iSER targets using libiscsi. The
+			:option:`filename` option is used to specify a libiscsi URL of the
+			form ``[<protocol>://]<portal>/<target>/<lun>``.  If the protocol
+			isn't specified within the filename the value specified by the
+			protocol option is used which defaults to iSCSI.  Colons within a
+			single URL of the filename parameter will need escaping with a ``\``.
+			This engine defines engine specific options.
+
 		**external**
 			Prefix to specify loading an external I/O engine object file. Append
 			the engine filename, e.g. ``ioengine=external:/tmp/foo.o`` to load

@@ -1843,6 +1843,11 @@ struct fio_option fio_options[FIO_MAX_OPTS] = {
 			    .help = "DAX Device based IO engine",
 			  },
 #endif
+#ifdef CONFIG_LIBISCSI
+			  { .ival = "libiscsi",
+			    .help = "libiscsi asynchronous IO"
+			  },
+#endif
 			  { .ival = "external",
 			    .help = "Load external engine (append name)",
 			    .cb = str_ioengine_external_cb,

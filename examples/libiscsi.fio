@@ -1,0 +1,33 @@
+# Example libiscsi engine jobs
+[global]
+runtime=20s
+time_based
+stonewall
+ioengine=libiscsi
+
+# Note how the colons that are part of the libiscsi URL need to be escaped
+[libiscsi-full-url]
+filename=iscsi\://127.0.0.1/iqn.2017-01.com.example\:disk1/0
+rw=read
+
+# The protocol can be left out of the filename (in which case whatever is set
+# by iscsi_protocol will be prepended)
+[libiscsi-short-url]
+filename=127.0.0.1/disk1/0
+rw=read
+
+# Example of using the iSER protocol (libiscsi must have been built with
+# support for it)
+[libiscsi-iser]
+filename=iser\://127.0.0.1/disk1/0
+rw=read
+
+# Busy wait rather than sleep when waiting for completion, use a different
+# initiator name to connect to the target, retry reconnects forever if
+# disconnected from the target
+[libiscsi-more-options]
+filename=127.0.0.1/disk1/0
+busy_poll
+iscsi_initiator=iqn.2017-01.example:myinitiator
+iscsi_retry=transport
+rw=read

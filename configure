@@ -142,6 +142,7 @@ gfio_check="no"
 libhdfs="no"
 pmemblk="no"
 devdax="no"
+libiscsi="no"
 disable_lex=""
 disable_pmem="no"
 prefix=/usr/local
@@ -177,6 +178,8 @@ for opt do
   --disable-rbd-blkin) disable_rbd_blkin="yes"
   ;;
   --disable-gfapi) disable_gfapi="yes"
+  ;;
+  --disable-libiscsi) disable_libiscsi="yes"
   ;;
   --enable-libhdfs) libhdfs="yes"
   ;;
@@ -1663,6 +1666,7 @@ fi
 print_config "Gluster API trim support" "$gf_trim"
 fi
 
+
 ##########################################
 # Check if we support stckf on s390
 if test "$s390_z196_facilities" != "yes" ; then
@@ -1803,6 +1807,29 @@ print_config "NVML pmemblk engine" "$pmemblk"
 ##########################################
 # Report whether dev-dax engine is enabled
 print_config "NVML dev-dax engine" "$devdax"
+
+##########################################
+# libiscsi probe
+if test "$libiscsi" != "yes" ; then
+  libiscsi="no"
+fi
+cat > $TMPC << EOF
+#include <iscsi/iscsi.h>
+
+int main(int argc, char **argv)
+{
+  struct iscsi_context *iscsi;
+  iscsi = iscsi_create_context("iqn.2010-11.libiscsi:fio");
+  (void) LIBISCSI_API_VERSION; // 1.11.0+
+  iscsi_out_queue_length(iscsi); // 1.16.0+
+  return 0;
+}
+EOF
+if test "$disable_libiscsi" != "yes" && compile_prog "" "-liscsi " "libiscsi"; then
+  LIBS="-liscsi $LIBS"
+  libiscsi="yes"
+fi
+print_config "libiscsi engine" "$libiscsi"
 
 ##########################################
 # Check if we have lex/yacc available
@@ -2222,6 +2249,9 @@ if test "$pmemblk" = "yes" ; then
 fi
 if test "$devdax" = "yes" ; then
   output_sym "CONFIG_LINUX_DEVDAX"
+fi
+if test "$libiscsi" = "yes" ; then
+  output_sym "CONFIG_LIBISCSI"
 fi
 if test "$arith" = "yes" ; then
   output_sym "CONFIG_ARITHMETIC"

@@ -169,6 +169,10 @@ static const struct opt_group fio_opt_cat_groups[] = {
 		.mask	= FIO_OPT_G_HDFS,
 	},
 	{
+		.name	= "libiscsi I/O engine", /* libiscsi */
+		.mask	= FIO_OPT_G_LIBISCSI,
+	},
+	{
 		.name	= NULL,
 	},
 };
