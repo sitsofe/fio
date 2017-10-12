@@ -554,7 +554,7 @@ uint64_t time_since_now(const struct timespec *s)
 #define CLOCK_ENTRIES_TEST	1000
 
 struct clock_entry {
-	uint32_t seq;
+	int32_t seq;
 	uint32_t cpu;
 	uint64_t tsc;
 };
