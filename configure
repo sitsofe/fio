@@ -343,6 +343,7 @@ CYGWIN*)
   # Flags below are still necessary mostly for MinGW.
   socklen_t="yes"
   sfaa="yes"
+  svcas="yes"
   rusage_thread="yes"
   fdatasync="yes"
   clock_gettime="yes" # clock_monotonic probe has dependency on this
@@ -705,6 +706,30 @@ if compile_prog "" "" "__sync_fetch_and_add()" ; then
     sfaa="yes"
 fi
 print_config "__sync_fetch_and_add" "$sfaa"
+
+##########################################
+# __sync_val_compare_and_swap test
+if test "$svcas" != "yes" ; then
+  svcas="no"
+fi
+cat > $TMPC << EOF
+#include <inttypes.h>
+static int svcas(uint32_t *ptr)
+{
+  return __sync_val_compare_and_swap(ptr, 0, 0);
+}
+
+int main(int argc, char **argv)
+{
+  uint32_t val = 42;
+  svcas(&val);
+  return val;
+}
+EOF
+if compile_prog "" "" "__sync_val_compare_and_swap()" ; then
+    svcas="yes"
+fi
+print_config "__sync_val_compare_and_swap" "$svcas"
 
 ##########################################
 # libverbs probe
@@ -2107,6 +2132,9 @@ if test "$sync_file_range" = "yes" ; then
 fi
 if test "$sfaa" = "yes" ; then
   output_sym "CONFIG_SFAA"
+fi
+if test "$svcas" = "yes" ; then
+  output_sym "CONFIG_SVCAS"
 fi
 if test "$libverbs" = "yes" -a "$rdmacm" = "yes" ; then
   output_sym "CONFIG_RDMA"
