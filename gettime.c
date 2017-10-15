@@ -623,8 +623,12 @@ static void *clock_thread_fn(void *data)
 			seq = atomic32_inc_return(t->seq);
 			tsc = get_cpu_clock();
 			end_seq = atomic32_cas_return(t->seq, seq, seq);
-			if (seq < last_seq)
-				break;
+			if (end_seq < last_seq) {
+				log_err("cs: seq moved backwards! last_seq %"
+					PRIu32 ", seq %" PRIu32 "\n", last_seq,
+					end_seq);
+				goto err;
+			}
 			last_seq = end_seq;
 		} while (seq != end_seq);
 
@@ -636,8 +640,9 @@ static void *clock_thread_fn(void *data)
 		unsigned long long clocks;
 
 		clocks = t->entries[i - 1].tsc - t->entries[0].tsc;
-		log_info("cs: cpu%3d: %llu clocks seen, first %llu\n", t->cpu,
-							clocks, first);
+		log_info("cs: cpu%3d: %llu clocks seen, first %llu, "
+			 "last_seq %" PRIu32 "\n", t->cpu, clocks, first,
+			 last_seq);
 	}
 
 	/*
