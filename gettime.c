@@ -607,16 +607,17 @@ static void *clock_thread_fn(void *data)
 	last_seq = 0;
 	c = &t->entries[0];
 	for (i = 0; i < t->nr_entries; i++, c++) {
-		uint32_t seq;
+		uint32_t seq, end_seq;
 		uint64_t tsc;
 
 		c->cpu = t->cpu;
 		do {
 			seq = atomic32_inc_return(t->seq);
+			tsc = get_cpu_clock();
+			end_seq = __sync_val_compare_and_swap(t->seq, seq, seq);
 			if (seq < last_seq)
 				break;
-			tsc = get_cpu_clock();
-		} while (seq != *t->seq);
+		} while (seq != end_seq);
 
 		c->seq = seq;
 		c->tsc = tsc;
