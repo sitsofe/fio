@@ -19,12 +19,5 @@ install:
 build_script:
   - 'bash.exe -lc "cd \"${APPVEYOR_BUILD_FOLDER}\" && ./configure --disable-native --extra-cflags=\"-Werror\" ${CONFIGURE_OPTIONS} && make.exe'
 
-after_build:
-  - cd os\windows && dobuild.cmd %PLATFORM%
-
 test_script:
   - 'bash.exe -lc "cd \"${APPVEYOR_BUILD_FOLDER}\" && file.exe fio.exe && make.exe test'
-
-artifacts:
-  - path: os\windows\*.msi
-    name: msi
