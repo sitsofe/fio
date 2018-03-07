@@ -548,7 +548,7 @@ uint64_t time_since_now(const struct timespec *s)
 }
 
 #if defined(FIO_HAVE_CPU_AFFINITY) && defined(ARCH_HAVE_CPU_CLOCK)  && \
-    defined(CONFIG_SYNC_SYNC) && defined(CONFIG_CMP_SWAP)
+    defined(CONFIG_SFAA) && defined(CONFIG_CMP_SWAP)
 
 #define CLOCK_ENTRIES_DEBUG	100000
 #define CLOCK_ENTRIES_TEST	1000
@@ -563,8 +563,9 @@ struct clock_thread {
 	pthread_t thread;
 	int cpu;
 	int debug;
-	pthread_mutex_t lock;
-	pthread_mutex_t started;
+	pthread_mutex_t *all_started_lock;
+	pthread_cond_t *all_started_cond;
+	bool *all_started;
 	unsigned long nr_entries;
 	uint32_t *seq;
 	struct clock_entry *entries;
@@ -574,6 +575,11 @@ static inline uint32_t atomic32_compare_and_swap(uint32_t *ptr, uint32_t old,
 						 uint32_t new)
 {
 	return __sync_val_compare_and_swap(ptr, old, new);
+}
+
+static inline uint32_t atomic32_load(uint32_t *ptr)
+{
+	return __sync_fetch_and_add(ptr, 0);
 }
 
 static void *clock_thread_fn(void *data)
@@ -600,8 +606,10 @@ static void *clock_thread_fn(void *data)
 		goto err;
 	}
 
-	pthread_mutex_lock(&t->lock);
-	pthread_mutex_unlock(&t->started);
+	pthread_mutex_lock(t->all_started_lock);
+	while(!t->all_started)
+		pthread_cond_wait(t->all_started_cond, t->all_started_lock);
+	pthread_mutex_unlock(t->all_started_lock);
 
 	first = get_cpu_clock();
 	c = &t->entries[0];
@@ -611,10 +619,9 @@ static void *clock_thread_fn(void *data)
 
 		c->cpu = t->cpu;
 		do {
-			seq = *t->seq;
+			seq = atomic32_load(t->seq);
 			if (seq == UINT_MAX)
 				break;
-			__sync_synchronize();
 			tsc = get_cpu_clock();
 		} while (seq != atomic32_compare_and_swap(t->seq, seq, seq + 1));
 
@@ -667,7 +674,10 @@ int fio_monotonic_clocktest(int debug)
 	unsigned long nr_entries, tentries, failed = 0;
 	struct clock_entry *prev, *this;
 	uint32_t seq = 0;
+	bool all_started = 0;
 	unsigned int i;
+	pthread_mutex_t all_started_lock;
+	pthread_cond_t all_started_cond;
 
 	if (debug) {
 		log_info("cs: reliable_tsc: %s\n", tsc_reliable ? "yes" : "no");
@@ -694,6 +704,9 @@ int fio_monotonic_clocktest(int debug)
 	if (debug)
 		log_info("cs: Testing %u CPUs\n", nr_cpus);
 
+	pthread_mutex_init(&all_started_lock, NULL);
+	pthread_cond_init(&all_started_cond, NULL);
+
 	for (i = 0; i < nr_cpus; i++) {
 		struct clock_thread *t = &cthreads[i];
 
@@ -702,9 +715,9 @@ int fio_monotonic_clocktest(int debug)
 		t->seq = &seq;
 		t->nr_entries = nr_entries;
 		t->entries = &entries[i * nr_entries];
-		pthread_mutex_init(&t->lock, NULL);
-		pthread_mutex_init(&t->started, NULL);
-		pthread_mutex_lock(&t->lock);
+		t->all_started_lock = &all_started_lock;
+		t->all_started = &all_started;
+
 		if (pthread_create(&t->thread, NULL, clock_thread_fn, t)) {
 			failed++;
 			nr_cpus = i;
@@ -712,17 +725,10 @@ int fio_monotonic_clocktest(int debug)
 		}
 	}
 
-	for (i = 0; i < nr_cpus; i++) {
-		struct clock_thread *t = &cthreads[i];
-
-		pthread_mutex_lock(&t->started);
-	}
-
-	for (i = 0; i < nr_cpus; i++) {
-		struct clock_thread *t = &cthreads[i];
-
-		pthread_mutex_unlock(&t->lock);
-	}
+	pthread_mutex_lock(&all_started_lock);
+	all_started = true;
+	pthread_mutex_unlock(&all_started_lock);
+	pthread_cond_broadcast(&all_started_cond);
 
 	for (i = 0; i < nr_cpus; i++) {
 		struct clock_thread *t = &cthreads[i];
