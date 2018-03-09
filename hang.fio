@@ -5,11 +5,10 @@ direct=1
 iodepth=1
 readwrite=randread
 time_based=1
-filesize=2M
+filesize=1M
 runtime=4
 time_based
-numjobs=240
+numjobs=500
 group_reporting
-bs=32768
 [job1]
 filename=file1:file2:file3:file4:file5:file6:file7:file8:file9:file10:file11:file12:file13:file14:file15
