@@ -1,9 +1,9 @@
 [global]
 thread
-ioengine=windowsaio
+ioengine=sync
 direct=1
 iodepth=1
-readwrite=randread
+readwrite=read
 time_based=1
 filesize=1M
 runtime=4

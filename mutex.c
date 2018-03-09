@@ -242,6 +242,7 @@ void fio_mutex_up(struct fio_mutex *mutex)
 	mutex->value++;
 	pthread_mutex_unlock(&mutex->lock);
 
+	usleep(100);
 	if (do_wake)
 		pthread_cond_signal(&mutex->cond);
 }
