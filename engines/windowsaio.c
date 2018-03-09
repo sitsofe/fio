@@ -24,6 +24,7 @@ struct fio_overlapped {
 
 struct windowsaio_data {
 	struct io_u **aio_events;
+	struct io_u_queue *io_u_all;
 	HANDLE iocp;
 	HANDLE iothread;
 	HANDLE iocomplete_event;
@@ -90,6 +91,7 @@ static int fio_windowsaio_init(struct thread_data *td)
 		wd = td->io_ops_data;
 		wd->iothread_running = TRUE;
 		wd->iocp = hFile;
+		wd->io_u_all = &td->io_u_all;
 
 		if (!rc)
 			ctx = malloc(sizeof(struct thread_ctx));
@@ -417,6 +419,8 @@ static DWORD WINAPI IoCompletionRoutine(LPVOID lpParameter)
 	struct thread_ctx *ctx;
 	ULONG_PTR ulKey = 0;
 	DWORD bytes;
+	int posix_error;
+	int i;
 
 	ctx = (struct thread_ctx*)lpParameter;
 	wd = ctx->wd;
@@ -426,8 +430,15 @@ static DWORD WINAPI IoCompletionRoutine(LPVOID lpParameter)
 
 		ret = GetQueuedCompletionStatus(ctx->iocp, &bytes, &ulKey,
 						&ovl, 250);
-		if (!ret && ovl == NULL)
-			continue;
+
+		if (!ret && ovl == NULL) {
+			if (GetLastError() == ERROR_ABANDONED_WAIT_0) {
+				log_err("windowsaio: handle closed unexpectedly\n");
+				wd->iothread_running = FALSE;
+				goto err;
+			} else
+				continue;
+		}
 
 		fov = CONTAINING_RECORD(ovl, struct fio_overlapped, o);
 		io_u = fov->io_u;
@@ -447,6 +458,23 @@ static DWORD WINAPI IoCompletionRoutine(LPVOID lpParameter)
 	CloseHandle(ctx->iocp);
 	free(ctx);
 	return 0;
+err:
+	/* Cancel all the I/Os */
+	posix_error = win_to_posix_error(GetLastError());
+	io_u_qiter(wd->io_u_all, io_u, i) {
+		if (!(io_u->flags & IO_U_F_FLIGHT))
+			continue;
+
+		fov = (struct fio_overlapped*)io_u->engine_data;
+		io_u->resid = 0;
+		io_u->error = posix_error;
+		fov->io_complete = TRUE;
+	}
+
+	/* We can't send any more events so close to stop anyone from waiting */
+	CloseHandle(wd->iocomplete_event);
+	free(ctx);
+	return 1;
 }
 
 static void fio_windowsaio_io_u_free(struct thread_data *td, struct io_u *io_u)
