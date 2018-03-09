@@ -221,6 +221,7 @@ void fio_mutex_down(struct fio_mutex *mutex)
 
 	while (!mutex->value) {
 		mutex->waiters++;
+		usleep(100);
 		pthread_cond_wait(&mutex->cond, &mutex->lock);
 		mutex->waiters--;
 	}
@@ -242,9 +243,10 @@ void fio_mutex_up(struct fio_mutex *mutex)
 	mutex->value++;
 	pthread_mutex_unlock(&mutex->lock);
 
-	usleep(100);
-	if (do_wake)
+	if (do_wake) {
+		usleep(100);
 		pthread_cond_signal(&mutex->cond);
+	}
 }
 
 void fio_rwlock_write(struct fio_rwlock *lock)
