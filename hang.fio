@@ -5,8 +5,8 @@ direct=1
 iodepth=1
 readwrite=randread
 time_based=1
-filesize=4M
-runtime=7
+filesize=2M
+runtime=4
 time_based
 numjobs=240
 group_reporting
