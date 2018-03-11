@@ -1,8 +1,13 @@
 /* Program that demonstrates a hang in pthread_cond_signal when using
  * winpthreads. Compile with
- * x86_64-w64-mingw32-gcc -O3 -Wall -static -pthread signal_hang.c
+ * x86_64-w64-mingw32-gcc -g -O3 -Wall -static -pthread signal_hang.c
  */
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+#define _GNU_SOURCE
+#endif
 #include <inttypes.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -27,7 +32,10 @@ struct sh_mutex {
 	int value;
 	int waiters;
 	uint64_t max_iterations;
+	uint64_t max_hits;
 	uint64_t iteration;
+	uint64_t hits;
+	pthread_barrier_t barrier;
 };
 
 struct sh_thread {
@@ -48,34 +56,68 @@ static void mutex_down(struct sh_mutex *mutex) {
 
 static void mutex_up(struct sh_mutex *mutex) {
 	int do_wake = 0;
-	uint64_t iteration;
+	uint64_t iteration, hits;
 
 	pthread_mutex_lock(&mutex->lock);
 	if (mutex->value == MUTEX_LOCKED && mutex->waiters)
 		do_wake = mutex->waiters;
 	mutex->value = MUTEX_UNLOCKED;
 	iteration = mutex->iteration;
+	if (do_wake && mutex->waiters > 1)
+		mutex->hits++;
+	hits = mutex->hits;
 	pthread_mutex_unlock(&mutex->lock);
 
 	if (do_wake) {
-		fprintf(stderr, "doing wake (waiters=%d, iteration=%" PRId64 ")...\n", do_wake, iteration);
+		fprintf(stderr, "doing wake (waiters=%d, iteration=%" PRId64 ", hits=%" PRId64 ")...\n", do_wake, iteration, hits);
 		pthread_cond_signal(&mutex->cond);
 	}
+}
+
+static int cpu_bind(int cpu) {
+#ifdef _WIN32
+	DWORD_PTR mask;
+
+	mask = 1 << cpu;
+
+	if (SetThreadAffinityMask(GetCurrentThread(), mask) == 0) {
+		fprintf(stderr, "GetLastError=%ld\n", GetLastError());
+		goto err;
+	}
+#else
+	cpu_set_t cpuset;
+	pthread_t thread;
+
+	CPU_ZERO(&cpuset);
+	CPU_SET(cpu, &cpuset);
+
+	thread = pthread_self();
+	if (pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset) != 0)
+		goto err;
+
+#endif
+	return 0;
+err:
+	fprintf(stderr, "setting affinity failed\n");
+	return 1;
 }
 
 static void *contend_lock_thread(void *data) {
 	struct sh_thread *thread_data = (struct sh_thread*) data;
 	struct sh_mutex	*mutex = thread_data->mutex;
 
+	cpu_bind(0);
+
+	//pthread_barrier_wait(&mutex->barrier);
 	while (1) {
-		uint64_t iteration;
+		uint64_t iteration, hits;
 
 		mutex_down(mutex);
 		mutex->iteration++;
 		iteration = mutex->iteration;
-		usleep(5);
+		hits = mutex->hits;
 		mutex_up(mutex);
-		if (iteration >= mutex->max_iterations)
+		if (iteration >= mutex->max_iterations || hits >= mutex->max_hits)
 			break;
 	}
 
@@ -83,21 +125,27 @@ static void *contend_lock_thread(void *data) {
 	return NULL;
 }
 
-int main(void) {
+int main(int argv, char **argc) {
 	struct sh_mutex mutex;
-	struct sh_thread *threads_data = NULL;
 	pthread_t *threads = NULL;
-	int thread_count;
+	struct sh_thread *threads_data = NULL;
+	int thread_count = 0;
+
+	memset(&mutex, 0, sizeof(struct sh_mutex));
 
 	CHECK(pthread_cond_init(&mutex.cond, NULL), "pthread_cond_init");
 	CHECK(pthread_mutex_init(&mutex.lock, NULL), "pthread_mutex_init");
 	mutex.value = MUTEX_UNLOCKED;
-	mutex.iteration = 0;
-	mutex.waiters = 0;
 
-	/* Change these to make the test longer */
-	thread_count = 50;
-	mutex.max_iterations = 10000;
+	if (argv > 1) {
+		thread_count = atoi(argc[1]);
+	} else
+		thread_count = 8;
+
+	mutex.max_iterations = 100000000;
+	mutex.max_hits = 1000;
+
+	CHECK(pthread_barrier_init(&mutex.barrier, NULL, thread_count), "pthread_barrier_init");
 
 	threads = malloc(sizeof(pthread_t) * thread_count);
 	threads_data = malloc(sizeof(struct sh_thread) * thread_count);
