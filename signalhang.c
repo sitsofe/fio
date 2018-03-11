@@ -21,6 +21,13 @@
 		goto err; \
 	}
 
+#define LOGGING 0
+#if LOGGING
+#define log(x, ...) log(x, ##__VA_ARGS__)
+#else
+#define log(x, ...) do {} while (0)
+#endif
+
 enum {
 	MUTEX_LOCKED = 0,
 	MUTEX_UNLOCKED = 1
@@ -69,7 +76,7 @@ static void mutex_up(struct sh_mutex *mutex) {
 	pthread_mutex_unlock(&mutex->lock);
 
 	if (do_wake) {
-		fprintf(stderr, "doing wake (waiters=%d, iteration=%" PRId64 ", hits=%" PRId64 ")...\n", do_wake, iteration, hits);
+		log("doing wake (waiters=%d, iteration=%" PRId64 ", hits=%" PRId64 ")...\n", do_wake, iteration, hits);
 		pthread_cond_signal(&mutex->cond);
 	}
 }
@@ -81,7 +88,7 @@ static int cpu_bind(int cpu) {
 	mask = 1 << cpu;
 
 	if (SetThreadAffinityMask(GetCurrentThread(), mask) == 0) {
-		fprintf(stderr, "GetLastError=%ld\n", GetLastError());
+		log("GetLastError=%ld\n", GetLastError());
 		goto err;
 	}
 #else
@@ -98,16 +105,18 @@ static int cpu_bind(int cpu) {
 #endif
 	return 0;
 err:
-	fprintf(stderr, "setting affinity failed\n");
+	log("setting affinity failed\n");
 	return 1;
 }
 
 static void *contend_lock_thread(void *data) {
 	struct sh_thread *thread_data = (struct sh_thread*) data;
 	struct sh_mutex	*mutex = thread_data->mutex;
+	int cpu;
 
-	cpu_bind(0);
-
+	//cpu = 0;                 // bind all to the first CPU
+	cpu = thread_data->id % 2; // round-robin to first 2 CPUs
+	CHECK(cpu_bind(cpu), "cpu_bind");
 	//pthread_barrier_wait(&mutex->barrier);
 	while (1) {
 		uint64_t iteration, hits;
@@ -116,13 +125,16 @@ static void *contend_lock_thread(void *data) {
 		mutex->iteration++;
 		iteration = mutex->iteration;
 		hits = mutex->hits;
+		sched_yield(); // increase deadlock probability
 		mutex_up(mutex);
 		if (iteration >= mutex->max_iterations || hits >= mutex->max_hits)
 			break;
 	}
 
-	fprintf(stderr, "finishing thread %d\n", thread_data->id);
+	log("finishing thread %d\n", thread_data->id);
 	return NULL;
+err:
+	exit(1);
 }
 
 int main(int argv, char **argc) {
@@ -143,7 +155,7 @@ int main(int argv, char **argc) {
 		thread_count = 8;
 
 	mutex.max_iterations = 100000000;
-	mutex.max_hits = 1000;
+	mutex.max_hits = 10000;
 
 	CHECK(pthread_barrier_init(&mutex.barrier, NULL, thread_count), "pthread_barrier_init");
 
