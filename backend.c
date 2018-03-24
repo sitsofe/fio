@@ -792,7 +792,7 @@ static bool exceeds_number_ios(struct thread_data *td)
 	number_ios = ddir_rw_sum(td->io_blocks);
 	number_ios += td->io_u_queued + td->io_u_in_flight;
 
-	return number_ios >= (td->o.number_ios * td->loops);
+	return number_ios >= td->o.number_ios;
 }
 
 static bool io_bytes_exceeded(struct thread_data *td, uint64_t *this_bytes)
@@ -1410,12 +1410,12 @@ static bool keep_running(struct thread_data *td)
 		return false;
 	if (td->o.time_based)
 		return true;
+	if (exceeds_number_ios(td))
+		return false;
 	if (td->o.loops) {
 		td->o.loops--;
 		return true;
 	}
-	if (exceeds_number_ios(td))
-		return false;
 
 	if (td->o.io_size)
 		limit = td->o.io_size;
