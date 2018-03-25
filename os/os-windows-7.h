@@ -10,7 +10,12 @@ typedef struct {
 /* Return all processors regardless of processor group */
 static inline unsigned int cpus_online(void)
 {
+#ifndef WINE
 	return GetMaximumProcessorCount(ALL_PROCESSOR_GROUPS);
+#else
+	/* FIXME: WINE doesn't implement GetMaximumProcessorCount yet */
+	return sysconf(_SC_NPROCESSORS_ONLN);
+#endif
 }
 
 static inline void print_mask(os_cpu_mask_t *cpumask)
@@ -104,7 +109,12 @@ static inline int mask_to_group_mask(os_cpu_mask_t *cpumask, int *processor_grou
 	cpus_offset = 0;
 	group_size = 0;
 	while (!found && group < online_groups) {
+#ifndef WINE
 		group_size = GetMaximumProcessorCount(group);
+#else
+		/* FIXME: WINE doesn't implement GetMaximumProcessorCount yet */
+		group_size = sysconf(_SC_NPROCESSORS_ONLN);
+#endif
 		dprint(FD_PROCESS, "group=%d group_start=%d group_size=%u search_cpu=%d\n",
 		       group, cpus_offset, group_size, search_cpu);
 		if (cpus_offset + group_size > search_cpu)
@@ -241,6 +251,7 @@ static inline int fio_getaffinity(int pid, os_cpu_mask_t *mask)
 	}
 
 	group_count = 1;
+#ifndef WINE
 	/*
 	 * GetProcessGroupAffinity() seems to expect more than the natural
 	 * alignment for a USHORT from the area pointed to by current_groups so
@@ -256,6 +267,10 @@ static inline int fio_getaffinity(int pid, os_cpu_mask_t *mask)
 		log_err("fio_getaffinity: failed to get single group affinity for pid %d\n", pid);
 		goto err;
 	}
+#else
+	/* FIXME: WINE doesn't implement GetProcessGroupAffinity yet */
+	current_groups[0] = 0;
+#endif
 	GetProcessAffinityMask(handle, &process_mask, &system_mask);
 
 	/* Convert group and group relative mask to full CPU mask */
@@ -268,10 +283,16 @@ static inline int fio_getaffinity(int pid, os_cpu_mask_t *mask)
 	group = 0;
 	group_start_cpu = 0;
 	group_size = 0;
+
 	dprint(FD_PROCESS, "current_groups=%d group_count=%d\n",
 	       current_groups[0], group_count);
 	while (true) {
+#ifndef WINE
 		group_size = GetMaximumProcessorCount(group);
+#else
+		/* FIXME: WINE doesn't implement GetMaximumProcessorCount yet */
+		group_size = 1;
+#endif
 		if (group_size == 0) {
 			log_err("fio_getaffinity: error retrieving size of "
 				"processor group %d\n", group);
