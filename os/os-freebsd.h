@@ -13,6 +13,13 @@
 #include <sys/cpuset.h>
 #include <sys/statvfs.h>
 
+#ifdef ARCH_HAVE_CRC_CRYPTO
+#include <sys/auxv.h>
+#ifndef HWCAP2_CRC32
+#define	HWCAP2_CRC32		0x00000010
+#endif /* HWCAP2_CRC32 */
+#endif /* ARCH_HAVE_CRC_CRYPTO */
+
 #include "../file.h"
 
 #define FIO_HAVE_ODIRECT
@@ -144,6 +151,28 @@ static inline int shm_attach_to_open_removed(void)
 		return 0;
 
 	return x > 0 ? 1 : 0;
+}
+
+#define FIO_HAVE_CPU_HAS
+static inline bool os_cpu_has(cpu_features feature)
+{
+	bool have_feature;
+	unsigned long fio_unused hwcap;
+
+	switch (feature) {
+#ifdef ARCH_HAVE_CRC_CRYPTO
+		case CPU_ARM64_CRC32C:
+			if (elf_aux_info(AT_HWCAP2, &hwcap, sizeof(hwcap)) == 0)
+				have_feature = (hwcap & HWCAP2_CRC32) != 0;
+			else
+				have_feature = false;
+			break;
+#endif
+		default:
+			have_feature = false;
+	}
+
+	return have_feature;
 }
 
 #endif

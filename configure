@@ -2117,6 +2117,9 @@ int main(void)
   /* Can we also do a runtime probe? */
 #if __linux__
   return getauxval(AT_HWCAP);
+#elif  __FreeBSD__
+  unsigned long hwcaps;
+  return elf_aux_info(AT_HWCAP2, &hwcaps, sizeof(hwcaps));
 #else
 # error "Don't know how to do runtime probe for ARM CRC32c"
 #endif
