@@ -12,6 +12,19 @@
 
 #include "../fio.h"
 
+typedef struct _FILE_LEVEL_TRIM_RANGE {
+  DWORDLONG Offset;
+  DWORDLONG Length;
+} FILE_LEVEL_TRIM_RANGE, *PFILE_LEVEL_TRIM_RANGE;
+
+typedef struct _FILE_LEVEL_TRIM {
+  DWORD                 Key;
+  DWORD                 NumRanges;
+  FILE_LEVEL_TRIM_RANGE Ranges[1];
+} FILE_LEVEL_TRIM, *PFILE_LEVEL_TRIM;
+
+#define FSCTL_FILE_LEVEL_TRIM CTL_CODE(FILE_DEVICE_FILE_SYSTEM, 130, METHOD_BUFFERED, FILE_WRITE_DATA)
+
 typedef BOOL (WINAPI *CANCELIOEX)(HANDLE hFile, LPOVERLAPPED lpOverlapped);
 
 int geterrno_from_win_error (DWORD code, int deferrno);
@@ -193,6 +206,11 @@ static int fio_windowsaio_open_file(struct thread_data *td, struct fio_file *f)
 		return 1;
 	}
 
+	if (td_trim(td) && f->filetype != FIO_TYPE_FILE) {
+		log_err("windowsaio: trim is only supported on files\n");
+		return 1;
+	}
+
 	if (!strcmp(f->file_name, "-")) {
 		log_err("windowsaio: can't read/write to stdin/out\n");
 		return 1;
@@ -360,6 +378,8 @@ static int fio_windowsaio_queue(struct thread_data *td, struct io_u *io_u)
 	LPOVERLAPPED lpOvl = &o->o;
 	BOOL success = FALSE;
 	int rc = FIO_Q_COMPLETED;
+	DWORD bytes;
+	FILE_LEVEL_TRIM flTrim;
 
 	fio_ro_check(td, io_u);
 
@@ -388,9 +408,24 @@ static int fio_windowsaio_queue(struct thread_data *td, struct io_u *io_u)
 
 		return FIO_Q_COMPLETED;
 	case DDIR_TRIM:
-		log_err("windowsaio: manual TRIM isn't supported on Windows\n");
-		io_u->error = 1;
-		io_u->resid = io_u->xfer_buflen;
+		flTrim.Key = 0;
+		flTrim.NumRanges = 1;
+		flTrim.Ranges[0].Offset = io_u->offset;
+		flTrim.Ranges[0].Length = io_u->xfer_buflen;
+		success = DeviceIoControl(io_u->file->hFile,
+						FSCTL_FILE_LEVEL_TRIM, &flTrim,
+						sizeof(FILE_LEVEL_TRIM_RANGE),
+						NULL, 0, &bytes, NULL);
+
+		if (!success) {
+			log_err("windowsaio: failed to trim\n");
+			io_u->error = win_to_posix_error(GetLastError());
+			io_u->resid = io_u->xfer_buflen;
+		}
+
+		//log_err("windowsaio: manual TRIM isn't supported on Windows\n");
+		//io_u->error = 1;
+		//io_u->resid = io_u->xfer_buflen;
 		return FIO_Q_COMPLETED;
 	default:
 		assert(0);
