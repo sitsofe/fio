@@ -244,7 +244,7 @@ static int fio_windowsaio_open_file(struct thread_data *td, struct fio_file *f)
 		log_err("fio: unknown fadvise type %d\n", td->o.fadvise_hint);
 	}
 
-	if (!td_write(td) || read_only)
+	if ((!td_write(td) && !td_trim(td)) || read_only)
 		access = GENERIC_READ;
 	else
 		access = (GENERIC_READ | GENERIC_WRITE);
@@ -414,18 +414,21 @@ static int fio_windowsaio_queue(struct thread_data *td, struct io_u *io_u)
 		flTrim.Ranges[0].Length = io_u->xfer_buflen;
 		success = DeviceIoControl(io_u->file->hFile,
 						FSCTL_FILE_LEVEL_TRIM, &flTrim,
-						sizeof(FILE_LEVEL_TRIM_RANGE),
+						sizeof(flTrim),
 						NULL, 0, &bytes, NULL);
 
 		if (!success) {
-			log_err("windowsaio: failed to trim\n");
+			log_err("windowsaio: failed to TRIM\n");
 			io_u->error = win_to_posix_error(GetLastError());
 			io_u->resid = io_u->xfer_buflen;
+			log_err("GetLastError=%d\n", GetLastError());
 		}
 
-		//log_err("windowsaio: manual TRIM isn't supported on Windows\n");
+#if 0
+		log_err("windowsaio: this version of Windows doesn't support TRIM\n");
 		//io_u->error = 1;
 		//io_u->resid = io_u->xfer_buflen;
+#endif
 		return FIO_Q_COMPLETED;
 	default:
 		assert(0);
