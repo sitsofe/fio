@@ -9,6 +9,9 @@ environment:
       PACKAGE_ARCH: x86_64
       CONFIGURE_OPTIONS:
 
+init:
+  - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
+
 install:
   - '%CYG_ROOT%\setup-x86_64.exe --quiet-mode --no-shortcuts --only-site --site "%CYG_MIRROR%" --packages "mingw64-%PACKAGE_ARCH%-zlib" > NUL'
   - SET PATH=%CYG_ROOT%\bin;%PATH% # NB: Changed env variables persist to later sections
@@ -16,12 +19,6 @@ install:
 build_script:
   - 'bash.exe -lc "cd \"${APPVEYOR_BUILD_FOLDER}\" && ./configure --disable-native --extra-cflags=\"-Werror\" ${CONFIGURE_OPTIONS} && make.exe'
 
-after_build:
-  - cd os\windows && dobuild.cmd %PLATFORM%
-
 test_script:
+  - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
   - 'bash.exe -lc "cd \"${APPVEYOR_BUILD_FOLDER}\" && file.exe fio.exe && make.exe test'
-
-artifacts:
-  - path: os\windows\*.msi
-    name: msi
