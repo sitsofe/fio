@@ -1249,12 +1249,14 @@ static int fio_netio_setup_listen_inet(struct thread_data *td, short port)
 		nd->addr.sin_addr.s_addr = sin.sin_addr.s_addr ? sin.sin_addr.s_addr : htonl(INADDR_ANY);
 		nd->addr.sin_port = htons(port);
 	} else {
+#ifdef CONFIG_IPV6
 		saddr = (struct sockaddr *) &nd->addr6;
 		len = sizeof(nd->addr6);
 
 		nd->addr6.sin6_family = AF_INET6;
 		nd->addr6.sin6_addr = in6addr_any;
 		nd->addr6.sin6_port = htons(port);
+#endif
 	}
 
 	if (bind(fd, saddr, len) < 0) {

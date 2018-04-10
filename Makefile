@@ -197,6 +197,10 @@ ifneq (,$(findstring CYGWIN,$(CONFIG_TARGET_OS)))
   LIBS	 += -lpthread -lpsapi -lws2_32
   CFLAGS += -DPSAPI_VERSION=1 -Ios/windows/posix/include -Wno-format -static
 endif
+ifeq ($(CONFIG_TARGET_OS), Minix)
+  LIBS	 += -L/usr/pkg/lib -lpthread
+  CFLAGS += -I/usr/pkg/include
+endif
 
 OBJS := $(SOURCE:.c=.o)
 

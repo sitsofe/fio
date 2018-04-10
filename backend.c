@@ -766,6 +766,9 @@ reap:
 
 		if (ret < 0)
 			break;
+#ifdef FIO_NON_PREEMPTIVE_THREADS
+		sched_yield();
+#endif
 	}
 
 	check_update_rusage(td);
@@ -1099,6 +1102,9 @@ reap:
 
 		if (ddir_rw(ddir) && td->o.thinktime)
 			handle_thinktime(td, ddir);
+#ifdef FIO_NON_PREEMPTIVE_THREADS
+		sched_yield();
+#endif
 	}
 
 	check_update_rusage(td);
