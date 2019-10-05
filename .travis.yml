@@ -1,4 +1,5 @@
 language: c
+dist: bionic
 os:
   - linux
 compiler:
@@ -36,7 +37,7 @@ matrix:
 before_install:
   - EXTRA_CFLAGS="-Werror"
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-        pkgs=(libaio-dev libnuma-dev libz-dev librbd-dev libibverbs-dev librdmacm-dev);
+        pkgs=(libaio-dev libcunit1-dev libcurl4-openssl-dev libgoogle-perftools-dev libibverbs-dev libnuma-dev librbd-dev librdmacm-dev libssl-dev libz-dev valgrind);
         if [[ "$BUILD_ARCH" == "x86" ]]; then
             pkgs=("${pkgs[@]/%/:i386}");
             pkgs+=(gcc-multilib);
