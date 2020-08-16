@@ -1,0 +1,12 @@
+freebsd_instance:
+  image_family: freebsd-12-1
+  memory: 2G
+
+env:
+  CIRRUS_CLONE_DEPTH: 1
+
+task:
+  install_script: pkg install -y gmake
+  configure_script: ./configure
+  build_script: gmake -j 3
+  smoke_test_script: gmake test
