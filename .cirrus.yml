@@ -8,5 +8,5 @@ env:
 task:
   install_script: pkg install -y gmake
   configure_script: ./configure
-  build_script: gmake -j 3
+  build_script: gmake -j 2
   smoke_test_script: gmake test
