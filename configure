@@ -367,9 +367,9 @@ int main(void)
   return 0;
 }
 EOF
-  if compile_prog "" "-Wl,-no_weak_imports" "disable weak symbols"; then
+  if compile_prog "" "-Werror=partial-availability" "disable weak symbols"; then
     echo "Disabling weak symbols"
-    LDFLAGS="$LDFLAGS -Wl,-no_weak_imports"
+    CFLAGS="$CFLAGS -Werror=partial-availability"
   fi
   ;;
 SunOS)
