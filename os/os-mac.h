@@ -100,4 +100,29 @@ static inline bool fio_fallocate(struct fio_file *f, uint64_t offset, uint64_t l
 	return false;
 }
 
+#ifndef CONFIG_CLOCK_GETTIME
+# undef CLOCK_REALTIME
+# define CLOCK_REALTIME 0
+# undef CLOCK_MONOTONIC
+# define CLOCK_MONOTONIC CLOCK_REALTIME
+# undef clock_gettime
+# define clock_gettime emulated_clock_gettime
+static inline int emulated_clock_gettime(clockid_t clock_id, struct timespec *tp)
+{
+	int rc;
+	struct timeval tv;
+
+	if (clock_id != CLOCK_REALTIME)
+		return -1;
+
+	rc = gettimeofday(&tv, NULL);
+	if (rc == 0) {
+		tp->tv_sec = tv.tv_sec;
+		tp->tv_nsec = tv.tv_usec * 1000;
+	}
+
+	return rc;
+}
 #endif
+
+#endif /* FIO_OS */

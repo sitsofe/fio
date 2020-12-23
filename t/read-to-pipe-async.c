@@ -35,6 +35,7 @@
 #include <assert.h>
 
 #include "../flist.h"
+#include "../os/os.h"
 
 static int bs = 4096;
 static int max_us = 10000;
