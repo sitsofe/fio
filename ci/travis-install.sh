@@ -45,8 +45,12 @@ case "$TRAVIS_OS_NAME" in
 	sudo apt-get install --no-install-recommends -qq -y "${pkgs[@]}"
 	;;
     "osx")
-	brew update >/dev/null 2>&1
-	brew install cunit
+	#brew update >/dev/null 2>&1
+	HOMEBREW_NO_AUTO_UPDATE=1 brew install cunit python3
+	# download and install pip
+	curl -O https://bootstrap.pypa.io/get-pip.py
+	python3 get-pip.py
+
 	pip3 install scipy six
 	;;
 esac
