@@ -132,8 +132,8 @@ run_fio() {
     fio=$(dirname "$0")/../../fio
 
     opts=(${global_var_opts[@]})
-    opts+=("--max-jobs=16" "--aux-path=/tmp" "--allow_file_create=0" \
-			   "--significant_figures=10" "$@")
+    opts+=("--aux-path=/tmp" "--allow_file_create=0" \
+	   "--significant_figures=10" "$@")
     # When max_open_zones option is specified to this test script, add
     # max_open_zones option to fio command unless the test case already add it.
     if [[ -n ${max_open_zones_opt} ]] && ! has_max_open_zones "${opts[@]}"; then

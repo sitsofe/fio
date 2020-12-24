@@ -121,7 +121,7 @@ if __name__ == '__main__':
     for job in reads:
 
         tf = "steadystate_job{0}.json".format(jobnum)
-        parameters = [ "--max-jobs=16", "--name=job{0}".format(jobnum) ]
+        parameters = [ "--name=job{0}".format(jobnum) ]
         parameters.extend([ "--thread",
                             "--output-format=json",
                             "--output={0}".format(tf),

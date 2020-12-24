@@ -123,11 +123,6 @@ in `/tmp'.
 .BI \-\-warnings\-fatal
 All fio parser warnings are fatal, causing fio to exit with an error.
 .TP
-.BI \-\-max\-jobs \fR=\fPnr
-Set the maximum number of threads/processes to support to \fInr\fR.
-NOTE: On Linux, it may be necessary to increase the shared-memory limit
-(`/proc/sys/kernel/shmmax') if fio runs into errors while creating jobs.
-.TP
 .BI \-\-server \fR=\fPargs
 Start a backend server, with \fIargs\fR specifying what to listen to.
 See \fBCLIENT/SERVER\fR section.
@@ -455,7 +450,9 @@ is spawned as an independent thread or process. May be used to setup a
 larger number of threads/processes doing the same thing. Each thread is
 reported separately; to see statistics for all clones as a whole, use
 \fBgroup_reporting\fR in conjunction with \fBnew_group\fR.
-See \fB\-\-max\-jobs\fR. Default: 1.
+NOTE: On Linux, it may be necessary to increase the shared-memory limit
+(`/proc/sys/kernel/shmmax`) if fio runs into errors while
+creating jobs. Defaults to 1.
 .SS "Time related parameters"
 .TP
 .BI runtime \fR=\fPtime

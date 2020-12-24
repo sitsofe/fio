@@ -53,7 +53,6 @@ def run_fio(fio):
         aio = 'posixaio'
 
     fio_args = [
-        "--max-jobs=4",
         "--output=fio-output.json",
         "--output-format=json+",
         "--filename=fio_jsonplus_clat2csv.test",

@@ -2215,7 +2215,6 @@ static void usage(const char *name)
 	printf("  --alloc-size=kb\tSet smalloc pool to this size in kb"
 		" (def 16384)\n");
 	printf("  --warnings-fatal\tFio parser warnings are fatal\n");
-	printf("  --max-jobs=nr\t\tMaximum number of threads/processes to support\n");
 	printf("  --server=args\t\tStart a backend fio server\n");
 	printf("  --daemonize=pidfile\tBackground fio server, write pid to file\n");
 	printf("  --client=hostname\tTalk to remote backend(s) fio server at hostname\n");
@@ -2738,6 +2737,7 @@ int parse_cmd_line(int argc, char *argv[], int client_type)
 			break;
 		case 'j':
 			/* we don't track/need this anymore, ignore it */
+			log_err("fio: --max-jobs is deprecated and is ignored\n");
 			break;
 		case 'S':
 			did_arg = true;

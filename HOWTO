@@ -236,13 +236,6 @@ Command line options
 	All fio parser warnings are fatal, causing fio to exit with an
 	error.
 
-.. option:: --max-jobs=nr
-
-	Set the maximum number of threads/processes to support to `nr`.
-	NOTE: On Linux, it may be necessary to increase the shared-memory
-	limit (:file:`/proc/sys/kernel/shmmax`) if fio runs into errors while
-	creating jobs.
-
 .. option:: --server=args
 
 	Start a backend server, with `args` specifying what to listen to.
@@ -675,7 +668,9 @@ Job description
 	larger number of threads/processes doing the same thing. Each thread is
 	reported separately; to see statistics for all clones as a whole, use
 	:option:`group_reporting` in conjunction with :option:`new_group`.
-	See :option:`--max-jobs`.  Default: 1.
+	NOTE: On Linux, it may be necessary to increase the shared-memory limit
+	(:file:`/proc/sys/kernel/shmmax`) if fio runs into errors while
+	creating jobs. Defaults to 1.
 
 
 Time related parameters
