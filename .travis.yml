@@ -1,25 +1,20 @@
 language: c
-dist: bionic
-os:
-  - linux
-compiler:
-  - clang
-  - gcc
-arch:
-  - amd64
-  - arm64
 env:
   global:
     - MAKEFLAGS="-j 2"
 matrix:
   include:
-    - os: linux
-      compiler: gcc
-      arch: amd64
-      env: BUILD_ARCH="x86" # Only do the gcc x86 build to reduce clutter
-    # Default xcode image
     - os: osx
       compiler: clang # Workaround travis setting CC=["clang", "gcc"]
+      osx_image: xcode12.2
+      arch: amd64
+    - os: osx
+      compiler: clang # Workaround travis setting CC=["clang", "gcc"]
+      osx_image: xcode11.4
+      arch: amd64
+    - os: osx
+      compiler: clang # Workaround travis setting CC=["clang", "gcc"]
+      osx_image: xcode11.3
       arch: amd64
     # Latest xcode image (needs periodic updating)
     - os: osx

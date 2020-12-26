@@ -45,9 +45,9 @@ case "$TRAVIS_OS_NAME" in
 	sudo apt-get install --no-install-recommends -qq -y "${pkgs[@]}"
 	;;
     "osx")
-	brew update >/dev/null 2>&1
-	brew install cunit
-	pip3 install scipy six
+	#brew update >/dev/null 2>&1
+	#brew install cunit
+	#pip3 install scipy six
 	;;
 esac
 
