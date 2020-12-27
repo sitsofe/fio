@@ -45,6 +45,8 @@ case "$TRAVIS_OS_NAME" in
 	sudo apt-get install --no-install-recommends -qq -y "${pkgs[@]}"
 	;;
     "osx")
+	# Upgrade command line tools
+	PROD=$(softwareupdate -l | grep "\*.*Command Line.*$(sw_vers -productVersion|awk -F. '{print $1"."$2}')" | head -n 1 | awk -F"*" '{print $2}' | sed -e 's/^ *//' | tr -d '\n')
 	xcrun --show-sdk-path
 	# Force command line tools
 	xcrun --show-sdk-path
@@ -53,7 +55,7 @@ case "$TRAVIS_OS_NAME" in
 	clang --version
 	# Assumes homebrew and python3 are already installed
 	#brew update >/dev/null 2>&1
-	HOMEBREW_NO_AUTO_UPDATE=1 brew install cunit python3
+	HOMEBREW_NO_AUTO_UPDATE=1 brew install cunit
 	#pip3 install scipy six
 	;;
 esac
