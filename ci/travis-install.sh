@@ -46,7 +46,7 @@ case "$TRAVIS_OS_NAME" in
 	;;
     "osx")
 	#brew update >/dev/null 2>&1
-	#brew install cunit
+	HOMEBREW_NO_AUTO_UPDATE=1 brew install cunit python3
 	#pip3 install scipy six
 	;;
 esac

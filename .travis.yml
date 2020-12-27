@@ -5,25 +5,21 @@ env:
 matrix:
   include:
     - os: osx
-      compiler: clang # Workaround travis setting CC=["clang", "gcc"]
+      compiler: clang
       osx_image: xcode12.2
       arch: amd64
     - os: osx
-      compiler: clang # Workaround travis setting CC=["clang", "gcc"]
+      compiler: clang
       osx_image: xcode11.4
       arch: amd64
     - os: osx
-      compiler: clang # Workaround travis setting CC=["clang", "gcc"]
+      compiler: clang
       osx_image: xcode11.3
       arch: amd64
-    # Latest xcode image (needs periodic updating)
     - os: osx
       compiler: clang
       osx_image: xcode11.2
       arch: amd64
-  exclude:
-    - os: osx
-      compiler: gcc
 
 install:
   - ci/travis-install.sh
