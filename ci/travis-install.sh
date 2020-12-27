@@ -46,7 +46,9 @@ case "$TRAVIS_OS_NAME" in
 	;;
     "osx")
 	# Upgrade command line tools
-	PROD=$(softwareupdate -l | grep "\*.*Command Line.*$(sw_vers -productVersion|awk -F. '{print $1"."$2}')" | head -n 1 | awk -F"*" '{print $2}' | sed -e 's/^ *//' | tr -d '\n')
+	PROD=$(softwareupdate -l | grep "*.*Command Line" | tail -n 1 | awk -F"*" '{print $2}' | sed -e 's/^ *//' | sed 's/Label: //g' | tr -d '\n')
+	sudo softwareupdate -i "$PROD" --verbose
+	sudo rm /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
 	xcrun --show-sdk-path
 	# Force command line tools
 	xcrun --show-sdk-path
