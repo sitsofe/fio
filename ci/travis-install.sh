@@ -45,14 +45,7 @@ case "$TRAVIS_OS_NAME" in
 	sudo apt-get install --no-install-recommends -qq -y "${pkgs[@]}"
 	;;
     "osx")
-	# Upgrade command line tools
-	PROD=$(softwareupdate -l | grep "*.*Command Line" | tail -n 1 | awk -F"*" '{print $2}' | sed -e 's/^ *//' | sed 's/Label: //g' | tr -d '\n')
-	sudo softwareupdate -i "$PROD" --verbose
-	sudo rm /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
-	xcrun --show-sdk-path
 	# Force command line tools
-	xcrun --show-sdk-path
-	sudo /usr/bin/xcode-select --switch /Library/Developer/CommandLineTools
 	xcrun --show-sdk-path
 	clang --version
 	# Assumes homebrew and python3 are already installed
