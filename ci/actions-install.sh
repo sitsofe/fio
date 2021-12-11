@@ -31,6 +31,7 @@ DPKGCFG
     case "${CI_TARGET_ARCH}" in
         "i686")
             sudo dpkg --add-architecture i386
+            sudo apt-get remove -y php7.4-cgi php8.0-cgi
             pkgs=("${pkgs[@]/%/:i386}")
             pkgs+=(
                 gcc-multilib
@@ -60,9 +61,9 @@ DPKGCFG
     )
 
     echo "Updating APT..."
-    sudo apt-get -qq update
+    sudo apt-get update
     echo "Installing packages..."
-    sudo apt-get install -o APT::Immediate-Configure=false --no-install-recommends -qq -y "${pkgs[@]}"
+    sudo apt-get install -o APT::Immediate-Configure=false --no-install-recommends -y "${pkgs[@]}"
 }
 
 install_linux() {
