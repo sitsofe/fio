@@ -63,7 +63,7 @@ DPKGCFG
     echo "Updating APT..."
     sudo apt-get update
     echo "Installing packages..."
-    sudo apt-get install -o APT::Immediate-Configure=false --no-install-recommends -y "${pkgs[@]}"
+    sudo apt-get install -o APT::Immediate-Configure=false -o Debug::pkgProblemResolver=true --no-install-recommends -y "${pkgs[@]}"
 }
 
 install_linux() {
