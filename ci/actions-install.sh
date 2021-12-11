@@ -38,6 +38,8 @@ DPKGCFG
                 gcc-multilib
                 pkg-config:i386
                 zlib1g-dev:i386
+		libselinux1:i386
+		libmount1:i386
             )
             ;;
         "x86_64")
@@ -64,7 +66,7 @@ DPKGCFG
     echo "Updating APT..."
     sudo apt-get update
     echo "Installing packages..."
-    sudo apt-get install -o APT::Immediate-Configure=false -o Debug::pkgProblemResolver=true --no-install-recommends -y "${pkgs[@]}"
+    sudo apt-get install -o APT::Immediate-Configure=false -o Debug::pkgProblemResolver=true --no-install-recommends -y "${pkgs[@]}" 
 }
 
 install_linux() {
