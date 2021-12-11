@@ -31,7 +31,7 @@ DPKGCFG
     case "${CI_TARGET_ARCH}" in
         "i686")
             sudo dpkg --add-architecture i386
-            dpkg -l *deb.sury.org*
+            dpkg -l | grep '.*deb.sury.org.*'
             sudo apt-get remove -y php7.4 php8.0 php7.4-cgi php8.0-cgi php8.1-fpm php8.1-cgi php8.1-phpdbg libselinux1 php8.1-cli php8.0-phpdbg php7.4-phpdbg 
             pkgs=("${pkgs[@]/%/:i386}")
             pkgs+=(
