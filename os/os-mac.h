@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/disk.h>
+#include <sys/mman.h>
 #include <sys/sysctl.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -14,8 +15,6 @@
 #include <machine/endian.h>
 #include <libkern/OSByteOrder.h>
 
-#include <sys/stat.h>
-#include <sys/mman.h>
 #include <stdio.h>
 
 
@@ -135,13 +134,6 @@ static inline int discard_pages(int fd, off_t offset, off_t size)
 	caddr_t *addr;
 	uint64_t chunk_size = MMAP_CHUNK_SIZE;
 
-	if (fsync(fd) < 0) {
-                int __err = errno; 
-		log_err("%s: Cannot fsync file: %s \n", __func__, strerror(errno));
-                errno = __err;
-		return -1;
-	}	    
-    
 	/*
 	 * mmap the file in 1GB chunks and msync(MS_INVALIDATE).
 	 */
@@ -154,14 +146,14 @@ static inline int discard_pages(int fd, off_t offset, off_t size)
 			fprintf(stderr, "Failed to mmap (%s), offset = %llu, size = %llu\n",
 				strerror(errno), offset, mmap_size);
                         errno = __map_errno;
-			return -1;
+			return errno;
 		}
 
 		if (msync(addr, mmap_size, MS_INVALIDATE)) {
                         int __msync_errno = errno;
 			fprintf(stderr, "msync failed to free cache pages.\n");
                         errno = __msync_errno;
-			return -1;
+			return errno;
 		}
 
 		/* Destroy the above mappings used to invalidate cache - cleaning up */
@@ -169,7 +161,7 @@ static inline int discard_pages(int fd, off_t offset, off_t size)
                         int __munmap_errno = errno;
 			fprintf(stderr, "munmap failed, error = %d.\n", errno);
                         errno = __munmap_errno;
-			return -1;
+			return errno;
 		}
 
 		size -= mmap_size;
@@ -177,4 +169,44 @@ static inline int discard_pages(int fd, off_t offset, off_t size)
 	}
 
 	return 0;
+}
+
+static inline int set_readhead(int fd, bool enabled) {
+	int ret;
+
+	ret = fcntl(fd, F_RDAHEAD, enabled ? 1 : 0);
+	if (ret == -1) {
+		ret = errno;
+	}
+
+	return ret;
+}
+
+#define CONFIG_POSIX_FADVISE
+#define POSIX_FADV_NORMAL       (0)
+#define POSIX_FADV_RANDOM       (1)
+#define POSIX_FADV_SEQUENTIAL   (2)
+#define POSIX_FADV_DONTNEED     (4)
+static inline int posix_fadvise(int fd, off_t offset, off_t len, int advice)
+{
+	int ret;
+
+	switch(advice) {
+	case POSIX_FADV_NORMAL:
+		ret = 0;
+		break;
+	case POSIX_FADV_RANDOM:
+		ret = set_readhead(fd, false);
+		break;
+	case POSIX_FADV_SEQUENTIAL:
+		ret = set_readhead(fd, true);
+		break;
+	case POSIX_FADV_DONTNEED:
+		ret = discard_pages(fd, offset, len);
+		break;
+        default:
+		ret = EINVAL;
+        }
+
+	return ret;
 }
