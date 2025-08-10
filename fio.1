@@ -3688,10 +3688,23 @@ invocation exactly matches the original write invocation.
 If the data direction includes any form of write, the verify will be of the
 newly written data.
 .P
-To avoid false verification errors, do not use the norandommap option when
-verifying data with async I/O engines and I/O depths > 1.  Or use the
-norandommap and the lfsr random generator together to avoid writing to the
-same offset with multiple outstanding I/Os.
+To avoid racing writes causing false verification errors when using async
+I/O engines with I/O depths > 1, use the \fBserialize_overlap\fR=1
+option. When \fBserialize_overlap\fR=1 is not used, such false
+verification errors can be avoided so long as no looping takes place (e.g.
+due to \fBloops\fR or \fBtime_based\fR options) and any random I/O
+doesn't generate multiple outstanding I/Os to the same offset:
+.RS
+.PD 0
+.IP \(bu 2n
+If \fBnorandommap\fR option is used then the
+\fBrandom_generator\fR option must be set to `lsfr' value.
+.P
+.IP \(bu 2n
+The \fBrandom_distribution\fR option can only be used with
+the `random' value.
+.PD
+.RE
 .RE
 .TP
 .BI verify_offset \fR=\fPint

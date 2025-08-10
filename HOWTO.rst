@@ -3962,10 +3962,17 @@ Verification
 	If the data direction includes any form of write, the verify will be of the
 	newly written data.
 
-	To avoid false verification errors, do not use the norandommap option when
-	verifying data with async I/O engines and I/O depths > 1.  Or use the
-	norandommap and the lfsr random generator together to avoid writing to the
-	same offset with multiple outstanding I/Os.
+	To avoid racing writes causing false verification errors when using async
+	I/O engines with I/O depths > 1, use the :option:`serialize_overlap`\=1
+	option. When :option:`serialize_overlap`\=1 is not used, such false
+	verification errors can be avoided so long as no looping takes place (e.g.
+	due to :option:`loops` or :option:`time_based` options) and any random I/O
+	doesn't generate multiple outstanding I/Os to the same offset:
+		- If :option:`norandommap` option is used then the
+		  :option:`random_generator` option must be set to ``lsfr`` value.
+		- The :option:`random_distribution` option can only be used with
+		  the ``random`` value.
+
 
 .. option:: verify_offset=int
 
