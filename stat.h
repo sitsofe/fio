@@ -299,10 +299,12 @@ struct thread_stat {
 
 #define JOBS_ETA {							\
 	uint32_t nr_running;						\
+	uint32_t nr_invalidating;					\
 	uint32_t nr_ramp;						\
 									\
 	uint32_t nr_pending;						\
 	uint32_t nr_setting_up;						\
+	uint32_t pad3;							\
 									\
 	uint64_t m_rate[DDIR_RWDIR_CNT];				\
 	uint64_t t_rate[DDIR_RWDIR_CNT];				\

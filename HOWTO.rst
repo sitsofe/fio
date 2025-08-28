@@ -4712,6 +4712,8 @@ forth.  The possible values (in typical life cycle order) are:
 +------+-----+-----------------------------------------------------------+
 |      |  p  | Thread running pre-reading file(s).                       |
 +------+-----+-----------------------------------------------------------+
+|      |  *  | Thread is invalidating the buffer/page cache of a file.   |
++------+-----+-----------------------------------------------------------+
 |      |  /  | Thread is in ramp period.                                 |
 +------+-----+-----------------------------------------------------------+
 |      |  R  | Running, doing sequential reads.                          |

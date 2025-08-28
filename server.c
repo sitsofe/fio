@@ -1044,6 +1044,7 @@ static int handle_send_eta_cmd(struct fio_net_cmd *cmd)
 		je = calloc(1, size);
 	} else {
 		je->nr_running		= cpu_to_le32(je->nr_running);
+		je->nr_invalidating	= cpu_to_le32(je->nr_invalidating);
 		je->nr_ramp		= cpu_to_le32(je->nr_ramp);
 		je->nr_pending		= cpu_to_le32(je->nr_pending);
 		je->nr_setting_up	= cpu_to_le32(je->nr_setting_up);

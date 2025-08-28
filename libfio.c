@@ -199,6 +199,7 @@ static const char *td_runstates[] = {
 	"RAMP",
 	"SETTING_UP",
 	"RUNNING",
+	"INVALIDATING_CACHE",
 	"PRE_READING",
 	"VERIFYING",
 	"FSYNCING",
@@ -209,7 +210,7 @@ static const char *td_runstates[] = {
 
 const char *runstate_to_name(int runstate)
 {
-	compiletime_assert(TD_LAST == 12, "td runstate list");
+	compiletime_assert(TD_LAST == 13, "td runstate list");
 	if (runstate >= 0 && runstate < TD_LAST)
 		return td_runstates[runstate];
 

@@ -1299,6 +1299,7 @@ static void convert_jobs_eta(struct jobs_eta *je)
 	int i;
 
 	je->nr_running		= le32_to_cpu(je->nr_running);
+	je->nr_invalidating	= le32_to_cpu(je->nr_invalidating);
 	je->nr_ramp		= le32_to_cpu(je->nr_ramp);
 	je->nr_pending		= le32_to_cpu(je->nr_pending);
 	je->nr_setting_up	= le32_to_cpu(je->nr_setting_up);

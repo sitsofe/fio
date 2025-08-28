@@ -90,6 +90,9 @@ static void check_str_update(struct thread_data *td)
 				c = 'D';
 		}
 		break;
+	case TD_INVALIDATING_CACHE:
+		c = '*';
+		break;
 	case TD_PRE_READING:
 		c = 'p';
 		break;
@@ -464,6 +467,9 @@ static bool calc_thread_status(struct jobs_eta *je, int force)
 			}
 
 			je->files_open += td->nr_open_files;
+		} else if (td->runstate == TD_INVALIDATING_CACHE) {
+			je->nr_running++;
+			je->nr_invalidating++;
 		} else if (td->runstate == TD_RAMP) {
 			je->nr_running++;
 			je->nr_ramp++;
@@ -645,7 +651,8 @@ void display_thread_status(struct jobs_eta *je)
 		int ddir;
 		int linelen;
 
-		if ((!je->eta_sec && !eta_good) || je->nr_ramp == je->nr_running ||
+		if ((!je->eta_sec && !eta_good) ||
+		    je->nr_ramp + je->nr_invalidating == je->nr_running ||
 		    je->eta_sec == -1)
 			strcpy(perc_str, "-.-%");
 		else {

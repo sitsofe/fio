@@ -574,6 +574,7 @@ static int __file_invalidate_cache(struct thread_data *td, struct fio_file *f,
 				   unsigned long long len)
 {
 	int errval = 0, ret = 0;
+	int old_state;
 
 #ifdef CONFIG_ESX
 	return 0;
@@ -587,6 +588,7 @@ static int __file_invalidate_cache(struct thread_data *td, struct fio_file *f,
 	if (len == -1ULL || off == -1ULL)
 		return 0;
 
+	old_state = td_bump_runstate(td, TD_INVALIDATING_CACHE);
 	if (td->io_ops->invalidate) {
 		dprint(FD_IO, "invalidate %s cache %s\n", td->io_ops->name,
 			f->file_name);
@@ -640,6 +642,7 @@ static int __file_invalidate_cache(struct thread_data *td, struct fio_file *f,
 		log_info("fio: cache invalidation of %s failed: %s\n",
 			 f->file_name, strerror(errval));
 
+	td_restore_runstate(td, old_state);
 	return 0;
 
 }
