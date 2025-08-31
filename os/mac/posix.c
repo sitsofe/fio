@@ -10,7 +10,9 @@
 
 #include "posix.h"
 
+#ifndef MMAP_CHUNK_SIZE
 #define MMAP_CHUNK_SIZE		(16LL * 1024 * 1024 * 1024)
+#endif
 
 /*
  * NB: performance of discard_pages() will be slower under Rosetta.

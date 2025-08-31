@@ -575,6 +575,8 @@ static int __file_invalidate_cache(struct thread_data *td, struct fio_file *f,
 {
 	int errval = 0, ret = 0;
 	int old_state;
+	struct timespec ts;
+	uint64_t usec;
 
 #ifdef CONFIG_ESX
 	return 0;
@@ -601,7 +603,10 @@ static int __file_invalidate_cache(struct thread_data *td, struct fio_file *f,
 	} else if (f->filetype == FIO_TYPE_FILE) {
 		dprint(FD_IO, "declare unneeded cache %s: %llu/%llu\n",
 			f->file_name, off, len);
+		fio_gettime(&ts, NULL);
 		ret = posix_fadvise(f->fd, off, len, POSIX_FADV_DONTNEED);
+		usec = utime_since_now(&ts);
+		log_err("Elapsed: %f seconds\n", usec/1000000.0);
 		if (ret)
 			errval = ret;
 	} else if (f->filetype == FIO_TYPE_BLOCK) {
